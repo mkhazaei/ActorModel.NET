@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup Label="Globals">
+		<AssemblyName>ActorModelNet.Core</AssemblyName>
+	</PropertyGroup>
+
+	<Import Project="..\Common.target" />
+</Project>

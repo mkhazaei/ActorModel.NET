@@ -1,0 +1,17 @@
+<Project>
+	<PropertyGroup Label="Globals">
+		<Nullable>enable</Nullable>
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+		<TargetFramework>net6.0</TargetFramework>
+		<LangVersion>preview</LangVersion>
+		<RootNamespace>$(AssemblyName)</RootNamespace>
+		<DocumentationFile>$(AssemblyName).docs.xml</DocumentationFile>
+	</PropertyGroup>
+
+  <ItemGroup>
+    <None Update="$(AssemblyName).docs.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </None>
+  </ItemGroup>
+</Project>
