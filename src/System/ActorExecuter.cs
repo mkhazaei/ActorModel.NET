@@ -14,7 +14,7 @@ namespace ActorModelNet.System
     /// There is no parent-child hierarchies and Clustering configuration.
     /// Actors will be deactivated and stored in DB and restored on demands.
     /// </summary>
-    public class ActorExecuter<TState> : IDisposable, IThreadPoolWorkItem
+    public class ActorExecuter<TState> : IActorExecuter, IDisposable, IThreadPoolWorkItem
         where TState : class, IEquatable<TState>
     {
 
@@ -28,6 +28,7 @@ namespace ActorModelNet.System
 
         private TState _state; // Isolated State
         private int _processStatus;
+        private bool _dirty; // Indicate that state of Actor changed or not.
 
         #endregion
 
@@ -46,6 +47,7 @@ namespace ActorModelNet.System
             _state = initState ?? actor.InitialState();
             _processStatus = ActorStatus.Idle;
             _messageQueue = new ConcurrentQueue<(object Message, IActorIdentity? Sender)>();
+            _dirty = true; // Need to persist!
             _logger = logger;
         }
 
@@ -80,6 +82,19 @@ namespace ActorModelNet.System
             return Task.FromResult(_state); // FIXME: Unsafe
         }
 
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public bool TrySleep(bool force)
+        {
+            if (_processStatus is not (ActorStatus.Idle or ActorStatus.Stopped) || _dirty || _messageQueue.Any())
+                return false;
+
+            _processStatus = ActorStatus.Stopped;
+            return true;
+        }
+
         /// <summary>
         /// IDisposable.Dispose
         /// </summary>
@@ -108,6 +123,7 @@ namespace ActorModelNet.System
                 if (modified)
                 {
                     _state = newState;
+                    _dirty = _dirty || modified;
                     anyModified = anyModified || modified;
                 }
             }
