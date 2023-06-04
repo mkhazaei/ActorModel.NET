@@ -1,10 +1,14 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Linq;
+using System.Numerics;
+using System.Reflection;
+using System.Reflection.Metadata.Ecma335;
 using System.Threading;
 using System.Threading.Tasks;
 using ActorModelNet.Contracts;
-using ActorModelNet.Contracts.Exceptions;
+using ActorModelNet.Contracts.Messages;
+using ActorModelNet.Core.Exceptions;
 using Microsoft.Extensions.Logging;
 
 namespace ActorModelNet.System
@@ -61,6 +65,15 @@ namespace ActorModelNet.System
         /// <inheritdoc />
         public IActorIdentity Identity => _identity;
 
+        /// <summary>
+        /// Receive system messages
+        /// </summary>
+        public void SendSysMsg(ISystemMessage message)
+        {
+            if (_processStatus == ActorStatus.Stopped) throw new ActorAlreadyStoppedException();
+            _messageQueue.Enqueue(new (message, null));
+            ProcessQueues();
+        }
 
         /// <summary>
         /// Receive user messages
@@ -76,10 +89,35 @@ namespace ActorModelNet.System
         /// <summary>
         /// 
         /// </summary>
-        public Task<TState> GetState()
+        public Task<TState> UnsafeGetState()
         {
             if (_processStatus == ActorStatus.Stopped) throw new ActorAlreadyStoppedException();
-            return Task.FromResult(_state); // FIXME: Unsafe
+            if (_processStatus == ActorStatus.Idle)
+                return Task.FromResult(_state);
+            var task = new TaskCompletionSource<TState>();
+            SendSysMsg(new GetStateSystemMessage<TState>(task));
+            return task.Task;
+        }
+
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public async Task<TResult> GetState<TResult>(Func<TState, TResult> selector)
+        {
+            if (_processStatus == ActorStatus.Stopped) throw new ActorAlreadyStoppedException();
+            TResult result;
+            if (_processStatus == ActorStatus.Idle)
+            {
+                result = selector(_state);
+            }
+            else
+            {
+                var task = new TaskCompletionSource<TState>();
+                SendSysMsg(new GetStateSystemMessage<TState>(task));
+                result = selector(await task.Task);
+            }
+            return result;
         }
 
 
@@ -117,14 +155,20 @@ namespace ActorModelNet.System
             {
                 if (_processStatus == ActorStatus.Stopped) break;
                 if (!_messageQueue.TryDequeue(out var envelop)) break;
-
-                var newState = _behaviourFactory().Handle(new MessageEnvelop(envelop.Message, envelop.Sender), _state);
-                var modified = !_state.Equals(newState);
-                if (modified)
+                if (envelop.Message is ISystemMessage sysMessage)
                 {
-                    _state = newState;
-                    _dirty = _dirty || modified;
-                    anyModified = anyModified || modified;
+                    HandleSystemMessage(sysMessage);
+                }
+                else
+                {
+                    var newState = _behaviourFactory().Handle(new MessageEnvelop(envelop.Message, envelop.Sender), _state);
+                    var modified = !_state.Equals(newState);
+                    if (modified)
+                    {
+                        _state = newState;
+                        _dirty = _dirty || modified;
+                        anyModified = anyModified || modified;
+                    }
                 }
             }
 
@@ -150,6 +194,15 @@ namespace ActorModelNet.System
             }
         }
 
+        private void HandleSystemMessage(ISystemMessage message)
+        {
+            switch (message)
+            {
+                case GetStateSystemMessage<TState> getStateSystemMessage:
+                    getStateSystemMessage.TaskCompletionSource.SetResult(_state);
+                    break;
+            }
+        }
         #endregion
 
 

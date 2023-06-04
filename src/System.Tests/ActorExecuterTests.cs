@@ -9,7 +9,7 @@ using System.Tests.Utilities;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace System.Tests
+namespace ActorModelNet.System.Tests
 {
     
     public class ActorExecuterTests
@@ -21,7 +21,7 @@ namespace System.Tests
             var actor = new ActorTest();
             var actorExecuter = new ActorExecuter<ActorState>(new GuidActorIdentity(Guid.NewGuid()), actor, loggerMock.Object);
 
-            var state1 = await actorExecuter.GetState();
+            var state1 = await actorExecuter.UnsafeGetState();
             Assert.Equal(5, state1.IntValue);
         }
 
@@ -32,7 +32,7 @@ namespace System.Tests
             var actor = new ActorTest();
             var actorExecuter = new ActorExecuter<ActorState>(new GuidActorIdentity(Guid.NewGuid()), actor, loggerMock.Object, new ActorState(7));
 
-            var state1 = await actorExecuter.GetState();
+            var state1 = await actorExecuter.UnsafeGetState();
             Assert.Equal(7, state1.IntValue);
         }
 
@@ -44,9 +44,7 @@ namespace System.Tests
             var actorExecuter = new ActorExecuter<ActorState>(new GuidActorIdentity(Guid.NewGuid()), actor, loggerMock.Object, new ActorState(7));
 
             actorExecuter.Send(new AddValue(5));
-            actorExecuter.Send(new DummyMessage(Utils.Out(new TaskCompletionSource(), out var tcs)));
-            await tcs.Task;
-            var state1 = await actorExecuter.GetState();
+            var state1 = await actorExecuter.UnsafeGetState();
             Assert.Equal(12, state1.IntValue);
         }
 
@@ -59,9 +57,7 @@ namespace System.Tests
 
             actorExecuter.Send(new AddValue(5));
             actorExecuter.Send(new MultiplyValue(-2));
-            actorExecuter.Send(new DummyMessage(Utils.Out(new TaskCompletionSource(), out var tcs)));
-            await tcs.Task;
-            var state1 = await actorExecuter.GetState();
+            var state1 = await actorExecuter.UnsafeGetState();
             Assert.Equal(-24, state1.IntValue);
         }
 
@@ -83,9 +79,6 @@ namespace System.Tests
                     case MultiplyValue message:
                         return Handle(state, message);
 
-                    case DummyMessage message:
-                        return Handle(state, message);
-
                 }
                 return state;
             }
@@ -100,18 +93,11 @@ namespace System.Tests
                 return new ActorState(state.IntValue * message.IntValue);
             }
 
-            private ActorState Handle(ActorState state, DummyMessage message)
-            {
-                message.TCS.SetResult();
-                return state;
-            }
-
-
 
         }
         public record AddValue(int IntValue);
         public record MultiplyValue(int IntValue);
-        public record DummyMessage(TaskCompletionSource TCS);
+
 
     }
 }
