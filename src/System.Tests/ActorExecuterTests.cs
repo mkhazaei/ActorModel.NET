@@ -18,8 +18,9 @@ namespace ActorModelNet.System.Tests
         public async Task CheckDefaultValueWork() 
         {
             var loggerMock = new Mock<ILogger>();
+            var actorSystem = new Mock<IActorSystem>();
             var actor = new ActorTest();
-            var actorExecuter = new ActorExecuter<ActorState>(new GuidActorIdentity(Guid.NewGuid()), actor, loggerMock.Object);
+            var actorExecuter = new ActorExecuter<ActorState>(new GuidActorIdentity(Guid.NewGuid()), actor, actorSystem.Object, loggerMock.Object);
 
             var state1 = await actorExecuter.UnsafeGetState();
             Assert.Equal(5, state1.IntValue);
@@ -29,8 +30,9 @@ namespace ActorModelNet.System.Tests
         public async Task CheckInitialValueWork()
         {
             var loggerMock = new Mock<ILogger>();
+            var actorSystem = new Mock<IActorSystem>();
             var actor = new ActorTest();
-            var actorExecuter = new ActorExecuter<ActorState>(new GuidActorIdentity(Guid.NewGuid()), actor, loggerMock.Object, new ActorState(7));
+            var actorExecuter = new ActorExecuter<ActorState>(new GuidActorIdentity(Guid.NewGuid()), actor, actorSystem.Object, loggerMock.Object, new ActorState(7));
 
             var state1 = await actorExecuter.UnsafeGetState();
             Assert.Equal(7, state1.IntValue);
@@ -40,8 +42,9 @@ namespace ActorModelNet.System.Tests
         public async Task CheckMessageExecuted()
         {
             var loggerMock = new Mock<ILogger>();
+            var actorSystem = new Mock<IActorSystem>();
             var actor = new ActorTest();
-            var actorExecuter = new ActorExecuter<ActorState>(new GuidActorIdentity(Guid.NewGuid()), actor, loggerMock.Object, new ActorState(7));
+            var actorExecuter = new ActorExecuter<ActorState>(new GuidActorIdentity(Guid.NewGuid()), actor, actorSystem.Object, loggerMock.Object, new ActorState(7));
 
             actorExecuter.Send(new AddValue(5));
             var state1 = await actorExecuter.UnsafeGetState();
@@ -52,8 +55,9 @@ namespace ActorModelNet.System.Tests
         public async Task CheckMessageExecutedInOrder()
         {
             var loggerMock = new Mock<ILogger>();
+            var actorSystem = new Mock<IActorSystem>();
             var actor = new ActorTest();
-            var actorExecuter = new ActorExecuter<ActorState>(new GuidActorIdentity(Guid.NewGuid()), actor, loggerMock.Object, new ActorState(7));
+            var actorExecuter = new ActorExecuter<ActorState>(new GuidActorIdentity(Guid.NewGuid()), actor, actorSystem.Object, loggerMock.Object, new ActorState(7));
 
             actorExecuter.Send(new AddValue(5));
             actorExecuter.Send(new MultiplyValue(-2));

@@ -23,7 +23,9 @@ namespace ActorModelNet.System
         private static readonly int _batchExecuteSize = 100;
 
         private readonly ConcurrentQueue<(object Message, IActorIdentity? Sender)> _messageQueue; // MailBox
+        private readonly IActorSystem _actorSystem;
         private readonly IActorIdentity _identity;
+        private readonly Type _actorType;
         private readonly Func<IActorBehavior<TState>> _behaviourFactory; // Instanse of 
         private readonly ILogger _logger;
 
@@ -40,12 +42,15 @@ namespace ActorModelNet.System
         /// </summary>
         public ActorExecuter(IActorIdentity identity,
             IActor<TState> actor,
+            IActorSystem actorSystem,
             ILogger logger,
             TState? initState = null)
         {
             _identity = identity;
+            _actorType = actor.GetType();
             _behaviourFactory = actor.Behaviour;
             _state = initState ?? actor.InitialState();
+            _actorSystem = actorSystem;
             _processStatus = ActorStatus.Idle;
             _messageQueue = new ConcurrentQueue<(object Message, IActorIdentity? Sender)>();
             _dirty = true; // Need to persist!
@@ -158,7 +163,7 @@ namespace ActorModelNet.System
                 }
                 else
                 {
-                    var newState = _behaviourFactory().Handle(new MessageEnvelop(envelop.Message, envelop.Sender), _state);
+                    var newState = _behaviourFactory().Handle(new MessageEnvelop(envelop.Message, envelop.Sender, _identity, _actorSystem), _state);
                     var modified = !_state.Equals(newState);
                     if (modified)
                     {

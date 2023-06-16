@@ -178,7 +178,7 @@ namespace ActorModelNet.System
         {
             if (!_actorDefinitions.TryGetValue(typeof(TActor), out var actor))
                 throw new ArgumentException("actorType is not valid");
-            var actorExecuter = new ActorExecuter<TState>(identity, (IActor<TState>)actor, _logger, initialState);
+            var actorExecuter = new ActorExecuter<TState>(identity, (IActor<TState>)actor, this, _logger, initialState);
             _actorsExecuters.Add(identity, actorExecuter);
             return actorExecuter;
         }
