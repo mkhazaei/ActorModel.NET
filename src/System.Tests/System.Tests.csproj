@@ -8,6 +8,7 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
 	<AssemblyName>ActorModelNet.System.Tests</AssemblyName>
+	<RootNamespace>$(AssemblyName)</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>

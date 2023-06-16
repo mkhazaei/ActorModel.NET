@@ -25,6 +25,11 @@ namespace ActorModelNet.System
         void Send(object message, IActorIdentity? sender = null);
 
         /// <summary>
+        /// 
+        /// </summary>
+        void SendSysMsg(ISystemMessage message);
+
+        /// <summary>
         /// Request Actor to stop
         /// </summary>
         public bool TrySleep(bool force);
