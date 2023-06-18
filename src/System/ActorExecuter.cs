@@ -11,27 +11,31 @@ using Microsoft.Extensions.Logging;
 namespace ActorModelNet.System
 {
     /// <summary>
-    /// Simple Actor model
+    /// Simple Actor model based
     /// There is no parent-child hierarchies and Clustering configuration.
     /// Actors will be deactivated and stored in DB and restored on demands.
     /// </summary>
-    public class ActorExecuter<TState> : IActorExecuter, IDisposable, IThreadPoolWorkItem
+    internal class ActorExecuter<TState> : IActorExecuter, IDisposable, IThreadPoolWorkItem
         where TState : class, IEquatable<TState>
     {
 
         #region Private Fields
-        private static readonly int _batchExecuteSize = 100;
 
         private readonly ConcurrentQueue<(object Message, IActorIdentity? Sender)> _messageQueue; // MailBox
         private readonly IActorSystem _actorSystem;
+        private readonly IActorSystemExceptionHandling _actorSystemExceptionHandling;
         private readonly IActorIdentity _identity;
         private readonly Type _actorType;
         private readonly Func<IActorBehavior<TState>> _behaviourFactory; // Instanse of 
+        private readonly IPersistence? _persistence;
         private readonly ILogger _logger;
+        private readonly ActorSystemConfiguration _configuration;
 
         private TState _state; // Isolated State
         private int _processStatus;
         private bool _dirty; // Indicate that state of Actor changed or not.
+        private Guid? _persistenceTimer;
+
 
         #endregion
 
@@ -43,18 +47,25 @@ namespace ActorModelNet.System
         public ActorExecuter(IActorIdentity identity,
             IActor<TState> actor,
             IActorSystem actorSystem,
+            IActorSystemExceptionHandling actorSystemExceptionHandling,
             ILogger logger,
-            TState? initState = null)
+            ActorSystemConfiguration configuration,
+            TState? initState = null,
+            IPersistence? persistence = null)
         {
             _identity = identity;
             _actorType = actor.GetType();
             _behaviourFactory = actor.Behaviour;
             _state = initState ?? actor.InitialState();
             _actorSystem = actorSystem;
+            _actorSystemExceptionHandling = actorSystemExceptionHandling;
             _processStatus = ActorStatus.Idle;
             _messageQueue = new ConcurrentQueue<(object Message, IActorIdentity? Sender)>();
+            _persistence = persistence;
             _dirty = true; // Need to persist!
+            _persistenceTimer = null;
             _logger = logger;
+            _configuration = configuration;
         }
 
 
@@ -119,6 +130,7 @@ namespace ActorModelNet.System
                 SendSysMsg(new GetStateSystemMessage<TState>(task));
                 result = selector(await task.Task);
             }
+            if (ReferenceEquals(_state, result)) throw new Exception("Selector Function must return new instance of state");
             return result;
         }
 
@@ -141,6 +153,7 @@ namespace ActorModelNet.System
         public void Dispose()
         {
             _processStatus = ActorStatus.Stopped;
+            Persist();
         }
 
         #endregion
@@ -153,7 +166,7 @@ namespace ActorModelNet.System
         public void Execute()
         {
             bool anyModified = false;
-            for (int i = 0; i < _batchExecuteSize; i++)
+            for (int i = 0; i < _configuration.BatchExecutionSize; i++)
             {
                 if (_processStatus == ActorStatus.Stopped) break;
                 if (!_messageQueue.TryDequeue(out var envelop)) break;
@@ -174,9 +187,15 @@ namespace ActorModelNet.System
                 }
             }
 
+            if (_dirty && anyModified)
+            {
+                TimeoutPersist();
+            }
+
             // Continue?
             if (_processStatus == ActorStatus.Stopped)
             {
+                Persist();
                 return;
             }
             _processStatus = ActorStatus.Idle;
@@ -200,11 +219,55 @@ namespace ActorModelNet.System
         {
             switch (message)
             {
+                case StoreSystemMessage _:
+                    Persist();
+                    break;
                 case GetStateSystemMessage<TState> getStateSystemMessage:
                     getStateSystemMessage.TaskCompletionSource.SetResult(_state);
                     break;
             }
         }
+
+        private void TimeoutPersist()
+        {
+            if (_persistence == null || _persistenceTimer != null) return;
+            _logger.LogDebug($"Actor/{_identity.ToString()}: Execute.TimeoutPersist Set Schedule");
+            _persistenceTimer = Guid.NewGuid();
+            _actorSystem.ScheduledSend(_identity, _actorType, new StoreSystemMessage(), TimeSpan.FromSeconds(_configuration.PersistenceTimeoutInSecond), _persistenceTimer);
+        }
+
+        private void Persist()
+        {
+            if (!_dirty || _persistence == null) return;
+            _logger.LogDebug($"Actor/{_identity.ToString()}: Persist()");
+            try
+            {
+                if (_persistence.Save(_identity, _state))
+                {
+                    _dirty = false;
+                    _persistenceTimer = null;
+                }
+            }
+            catch (Exception e)
+            {
+                _logger.LogError($"Actor/{_identity.ToString()}: Exception on Persist", e);
+            }
+
+        }
+
+        private void InternalError(Exception exception)
+        {
+            _processStatus = ActorStatus.Stopped;
+            foreach (var envelop in _messageQueue)
+            {
+                if (envelop.Message is GetStateSystemMessage<TState> getState)
+                    getState.TaskCompletionSource.SetException(exception);
+            }
+            _messageQueue.Clear();
+            _dirty = false;
+            _actorSystemExceptionHandling.Exception(_identity, exception);
+        }
+
         #endregion
 
 

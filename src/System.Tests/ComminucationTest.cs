@@ -16,7 +16,7 @@ public class ComminucationTest
     {
         var loggerMock = new Mock<ILogger<ActorSystem>>();
         var serviceProvider = new Mock<IServiceProvider>();
-        using var actorSystem = new ActorSystem(loggerMock.Object, serviceProvider.Object);
+        using var actorSystem = new ActorSystem(loggerMock.Object);
         actorSystem.Register<ActorTest>();
 
         var actor1 = actorSystem.Spawn<ActorTest, ActorState>(Utils.Out(new GuidActorIdentity(Guid.NewGuid()), out var id1));

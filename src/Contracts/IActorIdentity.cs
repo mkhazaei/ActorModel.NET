@@ -12,10 +12,5 @@ namespace ActorModelNet.Contracts
         /// </summary>
         byte[] ToByeArray();
 
-        /// <summary>
-        /// To string
-        /// </summary>
-        string ToString();
-
     }
 }

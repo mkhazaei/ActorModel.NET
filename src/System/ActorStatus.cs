@@ -3,7 +3,7 @@
     /// <summary>
     /// Actor Life-Cycle
     /// </summary>
-    public static class ActorStatus
+    internal static class ActorStatus
     {
         /// <summary>
         /// Idle

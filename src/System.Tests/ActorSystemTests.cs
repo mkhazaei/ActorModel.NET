@@ -13,8 +13,7 @@ public class ActorSystemTests
     public async Task CheckDefaultValueVork()
     {
         var loggerMock = new Mock<ILogger<ActorSystem>>();
-        var serviceProvider = new Mock<IServiceProvider>();
-        using var actorSystem = new ActorSystem(loggerMock.Object, serviceProvider.Object);
+        using var actorSystem = new ActorSystem(loggerMock.Object);
         actorSystem.Register<ActorTest>();
 
         var actor1 = actorSystem.Spawn<ActorTest, ActorState>(new GuidActorIdentity(Utils.Out(Guid.NewGuid(), out var id1)));
@@ -27,8 +26,7 @@ public class ActorSystemTests
     public async Task CheckInitialize()
     {
         var loggerMock = new Mock<ILogger<ActorSystem>>();
-        var serviceProvider = new Mock<IServiceProvider>();
-        using var actorSystem = new ActorSystem(loggerMock.Object, serviceProvider.Object);
+        using var actorSystem = new ActorSystem(loggerMock.Object);
         actorSystem.Register<ActorTest>();
 
         var actor1 = actorSystem.Spawn<ActorTest, ActorState>(new GuidActorIdentity(Utils.Out(Guid.NewGuid(), out var id1)), new ActorState(7));
@@ -42,8 +40,7 @@ public class ActorSystemTests
     public async Task ChangeStateTest()
     {
         var loggerMock = new Mock<ILogger<ActorSystem>>();
-        var serviceProvider = new Mock<IServiceProvider>();
-        using var actorSystem = new ActorSystem(loggerMock.Object, serviceProvider.Object);
+        using var actorSystem = new ActorSystem(loggerMock.Object);
         actorSystem.Register<ActorTest>();
 
         var actor1 = actorSystem.Spawn<ActorTest, ActorState>(new GuidActorIdentity(Utils.Out(Guid.NewGuid(), out var id1)));

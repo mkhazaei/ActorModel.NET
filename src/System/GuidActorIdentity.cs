@@ -22,7 +22,7 @@ namespace ActorModelNet.System
         public Guid Identity { get; }
 
 
-        
+
 
         bool IEquatable<IActorIdentity>.Equals(IActorIdentity? other)
         {

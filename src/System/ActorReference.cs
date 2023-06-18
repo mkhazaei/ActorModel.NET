@@ -14,13 +14,13 @@ namespace ActorModelNet.System
         where TActor : class, IActor<TState>
         where TState : class, IEquatable<TState>
     {
-        private readonly ActorSystem _actorSystem;
+        private readonly IActorSystem _actorSystem;
         private readonly IActorIdentity _actorIdentity;
 
         /// <summary>
         /// 
         /// </summary>
-        public ActorReference(ActorSystem actorSystem, IActorIdentity actorIdentity)
+        public ActorReference(IActorSystem actorSystem, IActorIdentity actorIdentity)
         {
             _actorSystem = actorSystem;
             _actorIdentity = actorIdentity;
