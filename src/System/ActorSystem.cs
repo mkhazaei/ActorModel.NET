@@ -2,14 +2,12 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Security.Principal;
 using System.Threading;
 using System.Threading.Tasks;
 using ActorModelNet.Contracts;
 using ActorModelNet.Contracts.Exceptions;
 using ActorModelNet.Contracts.Messages;
 using ActorModelNet.Core.Utilities;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace ActorModelNet.System
@@ -18,7 +16,7 @@ namespace ActorModelNet.System
     /// A Type-Safe Simple Actor System.
     /// This Actor System run on a single Host and need to know about Actor Properties.
     /// </summary>
-    internal class ActorSystem : IActorSystem, IActorSystemExceptionHandling, IDisposable
+    public class ActorSystem : IActorSystem, IActorSystemExecuterContract, IDisposable
     {
 
         private readonly Dictionary<IActorIdentity, IActorExecuter> _actorsExecuters;
@@ -33,7 +31,7 @@ namespace ActorModelNet.System
         /// <summary>
         /// 
         /// </summary>
-        public ActorSystem(ILogger<ActorSystem> logger, IPersistence? persistence = null, ActorSystemConfiguration? configuration = null)
+        public ActorSystem(ILogger<ActorSystem> logger, IPersistence? persistence = null, ActorSystemConfiguration ? configuration = null)
         {
             _logger = logger;
             _actorsExecuters = new Dictionary<IActorIdentity, IActorExecuter>();
@@ -66,13 +64,13 @@ namespace ActorModelNet.System
         }
 
         /// <summary>
-        /// 
+        /// Send Message
         /// </summary>
         public void Send<TActor, TState>(IActorIdentity identity, object message, IActorIdentity? sender = null)
             where TActor : class, IActor<TState>
             where TState : class, IEquatable<TState>
         {
-            var actor = GetOrSpawn<TActor, TState>(identity);
+            var actor = GetOrRestore<TActor, TState>(identity);
             actor.Send(message, sender);
         }
 
@@ -83,7 +81,7 @@ namespace ActorModelNet.System
             where TActor : class, IActor<TState>
             where TState : class, IEquatable<TState>
         {
-            var actor = GetOrSpawn<TActor, TState>(identity);
+            var actor = GetOrRestore<TActor, TState>(identity);
             var theActor = actor as ActorExecuter<TState> ?? throw new ArgumentException($"Type argument TState: {nameof(TState)} is not valid");
             return theActor.UnsafeGetState();
         }
@@ -95,7 +93,7 @@ namespace ActorModelNet.System
             where TActor : class, IActor<TState>
             where TState : class, IEquatable<TState>
         {
-            var actor = GetOrSpawn<TActor, TState>(identity);
+            var actor = GetOrRestore<TActor, TState>(identity);
             var theActor = actor as ActorExecuter<TState> ?? throw new ArgumentException($"Type argument TState: {nameof(TState)} is not valid");
             return theActor.GetState(selector);
         }
@@ -133,6 +131,7 @@ namespace ActorModelNet.System
             }
         }
 
+       
         #region Scheduling
 
         /// <summary>
@@ -165,17 +164,46 @@ namespace ActorModelNet.System
         }
 
         /// <summary>
+        /// 
+        /// </summary>
+        public void RemoveSchedule(Guid id)
+        {
+            if (!_timers.Remove(id, out var timer)) return;
+            timer.Change(Timeout.Infinite, Timeout.Infinite);
+            timer.Dispose();
+        }
+        #endregion
+
+        #region Internal - 
+
+        /// <summary>
         /// tell actor system there is exception in a actor
         /// </summary>
-        public void Exception(IActorIdentity identity, Exception exception)
+        void IActorSystemExecuterContract.Exception(IActorIdentity identity, Exception exception)
         {
             _logger.LogError($"Actor/{identity.ToString()}: Exception", exception);
-            Sleep(identity, force: true);
+            ((IActorSystemExecuterContract)this).Sleep(identity, true);
         }
 
+        /// <summary>
+        /// sleep the actor
+        /// </summary>
+        void IActorSystemExecuterContract.Sleep(IActorIdentity identity, bool force)
+        {
+            lock (_threadLocker.GetLocker(identity))
+            {
+                if (!_actorsExecuters.TryGetValue(identity, out var actorExecuter)) return;
+                if (!actorExecuter.TrySleep(force)) return;
+                _actorsExecuters.Remove(identity);
+                actorExecuter.Dispose();
+                _logger.LogDebug($"Sleep : Actor/{identity.ToString()} slept");
+            }
+
+        }
         #endregion
 
         #region Private Functions
+
         private void ScheduleCallback(object? state)
         {
             var scheduleState = state as ActorScheduleState;
@@ -186,10 +214,7 @@ namespace ActorModelNet.System
                 timer.Dispose();
             }
 
-            if (!_actorsExecuters.TryGetValue(scheduleState.ActorIdentity, out var actorExecuter))
-            {
-                throw new ActorIsNotExistException(scheduleState.ActorIdentity);
-            }
+            var actorExecuter = GetOrRestore(scheduleState.ActorIdentity, scheduleState.ActorType);
             if (scheduleState.Message is ISystemMessage sysMessage)
                 actorExecuter.SendSysMsg(sysMessage);
             else
@@ -198,7 +223,36 @@ namespace ActorModelNet.System
 
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private IActorExecuter GetOrRestore(IActorIdentity identity, Type actorType)
+        {
+            lock (_threadLocker.GetLocker(identity))
+            {
+                if (!_actorsExecuters.TryGetValue(identity, out var actorExecuter))
+                {
+                    actorExecuter = AddActor(identity, actorType);
+                    actorExecuter.SendSysMsg(new RestoreSystemMessage());
+                    actorExecuter.Send(new ActorRestoredMessage());
+                }
+                return actorExecuter;
+            }
+        }
+
+        private IActorExecuter GetOrRestore<TActor, TState>(IActorIdentity identity)
+            where TActor : IActor<TState>
+            where TState : class, IEquatable<TState>
+        {
+            lock (_threadLocker.GetLocker(identity))
+            {
+                if (!_actorsExecuters.TryGetValue(identity, out var actorExecuter))
+                {
+                    actorExecuter = AddActor<TActor, TState>(identity);
+                    actorExecuter.SendSysMsg(new RestoreSystemMessage());
+                    actorExecuter.Send(new ActorRestoredMessage());
+                }
+                return actorExecuter;
+            }
+        }
+
         private IActorExecuter GetOrSpawn<TActor, TState>(IActorIdentity identity, TState? initState = null)
             where TActor : IActor<TState>
             where TState : class, IEquatable<TState>
@@ -215,18 +269,6 @@ namespace ActorModelNet.System
             }
         }
 
-        private void Sleep(IActorIdentity identity, bool force = false)
-        {
-            lock (_threadLocker.GetLocker(identity))
-            {
-                if (!_actorsExecuters.TryGetValue(identity, out var actorExecuter)) return;
-                if (!actorExecuter.TrySleep(force)) return;
-                _actorsExecuters.Remove(identity);
-                actorExecuter.Dispose();
-                _logger.LogInformation($"Sleep : Actor/{identity.ToString()} slept");
-            }
-
-        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private IActorExecuter AddActor<TActor, TState>(IActorIdentity identity, TState? initialState = null)
@@ -244,9 +286,11 @@ namespace ActorModelNet.System
         {
             if (!_actorDefinitions.TryGetValue(actorType, out var actor))
                 throw new ArgumentException("actorType is not valid");
-            var stateType = actor.GetType().GetGenericArguments().First();
+            var stateType = actor.GetType()
+                .GetInterfaces().Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IActor<>)).First()
+                .GetGenericArguments().First();
             var executerType = typeof(ActorExecuter<>).MakeGenericType(stateType);
-            var actorExecuter = (IActorExecuter)Activator.CreateInstance(executerType, identity, actor, this, this, _logger, _configuration, (Action<IActorIdentity, bool>)Sleep, initialState, _persistence);
+            var actorExecuter = (IActorExecuter)Activator.CreateInstance(executerType, identity, actor, this, this, _logger, _configuration, initialState, _persistence);
             _actorsExecuters.Add(identity, actorExecuter);
             return actorExecuter;
         }

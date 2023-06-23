@@ -21,5 +21,16 @@ namespace ActorModelNet.Contracts
         /// </summary>
         public int PersistenceTimeoutInSecond { get; set; } = 60;
 
+        /// <summary>
+        /// Actor Auto Persistence Timeout
+        /// </summary>
+        public int SleepTimeoutInSecond { get; set; } = 3600;
+
+        /// <summary>
+        /// Actor Auto Persistence Timeout
+        /// </summary>
+        public int SleepTimeoutSlidingWindowsInSecond { get; set; } = 600;
+
+
     }
 }

@@ -10,7 +10,7 @@ namespace ActorModelNet.System
     /// <summary>
     /// 
     /// </summary>
-    public interface IActorExecuter : IDisposable
+    internal interface IActorExecuter : IDisposable
     {
         /// <summary>
         /// Identity of actor

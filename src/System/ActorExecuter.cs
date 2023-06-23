@@ -23,7 +23,7 @@ namespace ActorModelNet.System
 
         private readonly ConcurrentQueue<(object Message, IActorIdentity? Sender)> _messageQueue; // MailBox
         private readonly IActorSystem _actorSystem;
-        private readonly IActorSystemExceptionHandling _actorSystemExceptionHandling;
+        private readonly IActorSystemExecuterContract _actorSystemExecuterContract;
         private readonly IActorIdentity _identity;
         private readonly Type _actorType;
         private readonly Func<IActorBehavior<TState>> _behaviourFactory; // Instanse of 
@@ -36,6 +36,8 @@ namespace ActorModelNet.System
         private bool _dirty; // Indicate that state of Actor changed or not.
         private Guid? _persistenceTimer;
 
+        private readonly Timer _sleepTimer;
+        private DateTime _lastRecievedMessage;
 
         #endregion
 
@@ -47,7 +49,7 @@ namespace ActorModelNet.System
         public ActorExecuter(IActorIdentity identity,
             IActor<TState> actor,
             IActorSystem actorSystem,
-            IActorSystemExceptionHandling actorSystemExceptionHandling,
+            IActorSystemExecuterContract actorSystemExecuterContract,
             ILogger logger,
             ActorSystemConfiguration configuration,
             TState? initState = null,
@@ -58,7 +60,7 @@ namespace ActorModelNet.System
             _behaviourFactory = actor.Behaviour;
             _state = initState ?? actor.InitialState();
             _actorSystem = actorSystem;
-            _actorSystemExceptionHandling = actorSystemExceptionHandling;
+            _actorSystemExecuterContract = actorSystemExecuterContract;
             _processStatus = ActorStatus.Idle;
             _messageQueue = new ConcurrentQueue<(object Message, IActorIdentity? Sender)>();
             _persistence = persistence;
@@ -66,6 +68,10 @@ namespace ActorModelNet.System
             _persistenceTimer = null;
             _logger = logger;
             _configuration = configuration;
+
+            _lastRecievedMessage = DateTime.UtcNow;
+            _sleepTimer = new Timer(_ => _actorSystemExecuterContract.Sleep(_identity, false), null, TimeSpan.FromSeconds(_configuration.SleepTimeoutInSecond), Timeout.InfiniteTimeSpan);
+
         }
 
 
@@ -84,6 +90,7 @@ namespace ActorModelNet.System
         public void SendSysMsg(ISystemMessage message)
         {
             if (_processStatus == ActorStatus.Stopped) throw new ActorAlreadyStoppedException();
+            ResetSleepTimer();
             _messageQueue.Enqueue(new (message, null));
             ProcessQueues();
         }
@@ -94,6 +101,7 @@ namespace ActorModelNet.System
         public void Send(object message, IActorIdentity? sender = null)
         {
             if (_processStatus == ActorStatus.Stopped) throw new ActorAlreadyStoppedException();
+            ResetSleepTimer();
             _messageQueue.Enqueue(new (message, sender));
             ProcessQueues();
         }
@@ -119,6 +127,7 @@ namespace ActorModelNet.System
         public async Task<TResult> GetState<TResult>(Func<TState, TResult> selector)
         {
             if (_processStatus == ActorStatus.Stopped) throw new ActorAlreadyStoppedException();
+            ResetSleepTimer();
             TResult result;
             if (_processStatus == ActorStatus.Idle)
             {
@@ -140,9 +149,18 @@ namespace ActorModelNet.System
         /// </summary>
         public bool TrySleep(bool force)
         {
+            _logger.LogDebug($"Actor/{_identity.ToString()}: TrySleep()");
+            // Check if there is new mesage between timeout and current time
+            if (!force && DateTime.UtcNow.Subtract(_lastRecievedMessage) < TimeSpan.FromSeconds(_configuration.SleepTimeoutInSecond - _configuration.SleepTimeoutSlidingWindowsInSecond))
+            {
+                _sleepTimer.Change(TimeSpan.FromSeconds(_configuration.SleepTimeoutInSecond), Timeout.InfiniteTimeSpan);
+                return false;
+            }
+
             if (_processStatus is not (ActorStatus.Idle or ActorStatus.Stopped) || _dirty || _messageQueue.Any())
                 return false;
 
+            _logger.LogDebug($"Actor/{_identity.ToString()}: Sleeping...");
             _processStatus = ActorStatus.Stopped;
             return true;
         }
@@ -153,7 +171,9 @@ namespace ActorModelNet.System
         public void Dispose()
         {
             _processStatus = ActorStatus.Stopped;
+            _sleepTimer.Change(Timeout.Infinite, Timeout.Infinite);
             Persist();
+            _sleepTimer.Dispose();
         }
 
         #endregion
@@ -219,6 +239,9 @@ namespace ActorModelNet.System
         {
             switch (message)
             {
+                case RestoreSystemMessage _:
+                    Restore();
+                    break;
                 case StoreSystemMessage _:
                     Persist();
                     break;
@@ -255,6 +278,23 @@ namespace ActorModelNet.System
 
         }
 
+        private void Restore()
+        {
+            if (_persistence == null) return;
+            _logger.LogDebug($"Actor/{_identity.ToString()}: Restore()");
+            try
+            {
+                var state = _persistence.Load<TState>(_identity);
+                _state = state;
+                _dirty = false;
+            }
+            catch (Exception e)
+            {
+                InternalError(new Exception("Error of Restoring Actor", e));
+                return;
+            }
+        }
+
         private void InternalError(Exception exception)
         {
             _processStatus = ActorStatus.Stopped;
@@ -265,9 +305,18 @@ namespace ActorModelNet.System
             }
             _messageQueue.Clear();
             _dirty = false;
-            _actorSystemExceptionHandling.Exception(_identity, exception);
+            _actorSystemExecuterContract.Exception(_identity, exception);
         }
 
+        private void ResetSleepTimer()
+        {
+            var utc = DateTime.UtcNow;
+            if (utc.Subtract(_lastRecievedMessage) > TimeSpan.FromSeconds(_configuration.SleepTimeoutSlidingWindowsInSecond))
+            {
+                _sleepTimer.Change(TimeSpan.FromSeconds(_configuration.SleepTimeoutInSecond), Timeout.InfiniteTimeSpan);
+            }
+            _lastRecievedMessage = utc;
+        }
         #endregion
 
 

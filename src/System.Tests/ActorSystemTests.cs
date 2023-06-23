@@ -70,25 +70,14 @@ public class ActorSystemTests
             switch (envelop.Message)
             {
                 case AddValue message:
-                    return Handle(state, message);
+                    return new ActorState(state.IntValue + message.IntValue);
 
                 case MinusValue message:
-                    return Handle(state, message);
+                    return new ActorState(state.IntValue - message.IntValue);
 
             }
             return state;
         }
-
-        private ActorState Handle(ActorState state, AddValue message)
-        {
-            return new ActorState(state.IntValue + message.IntValue);
-        }
-
-        private ActorState Handle(ActorState state, MinusValue message)
-        {
-            return new ActorState(state.IntValue - message.IntValue);
-        }
-
     }
     public record AddValue(int IntValue);
     public record MinusValue(int IntValue);

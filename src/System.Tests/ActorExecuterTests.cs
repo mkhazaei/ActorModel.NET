@@ -18,7 +18,7 @@ namespace ActorModelNet.System.Tests
         public async Task CheckDefaultValueWork() 
         {
             var loggerMock = new Mock<ILogger>();
-            var actorExecuter = new ActorExecuter<ActorState>(new GuidActorIdentity(Guid.NewGuid()), new ActorTest(), new Mock<IActorSystem>().Object, new Mock<IActorSystemExceptionHandling>().Object, loggerMock.Object, new ActorSystemConfiguration());
+            var actorExecuter = new ActorExecuter<ActorState>(new GuidActorIdentity(Guid.NewGuid()), new ActorTest(), new Mock<IActorSystem>().Object, new Mock<IActorSystemExecuterContract>().Object, loggerMock.Object, new ActorSystemConfiguration());
 
             var state1 = await actorExecuter.UnsafeGetState();
             Assert.Equal(5, state1.IntValue);
@@ -28,7 +28,7 @@ namespace ActorModelNet.System.Tests
         public async Task CheckInitialValueWork()
         {
             var loggerMock = new Mock<ILogger>();
-            var actorExecuter = new ActorExecuter<ActorState>(new GuidActorIdentity(Guid.NewGuid()), new ActorTest(), new Mock<IActorSystem>().Object, new Mock<IActorSystemExceptionHandling>().Object, loggerMock.Object, new ActorSystemConfiguration(), new ActorState(7));
+            var actorExecuter = new ActorExecuter<ActorState>(new GuidActorIdentity(Guid.NewGuid()), new ActorTest(), new Mock<IActorSystem>().Object, new Mock<IActorSystemExecuterContract>().Object, loggerMock.Object, new ActorSystemConfiguration(), new ActorState(7));
 
             var state1 = await actorExecuter.UnsafeGetState();
             Assert.Equal(7, state1.IntValue);
@@ -38,7 +38,7 @@ namespace ActorModelNet.System.Tests
         public async Task CheckMessageExecuted()
         {
             var loggerMock = new Mock<ILogger>();
-            var actorExecuter = new ActorExecuter<ActorState>(new GuidActorIdentity(Guid.NewGuid()), new ActorTest(), new Mock<IActorSystem>().Object, new Mock<IActorSystemExceptionHandling>().Object, loggerMock.Object, new ActorSystemConfiguration(), new ActorState(7));
+            var actorExecuter = new ActorExecuter<ActorState>(new GuidActorIdentity(Guid.NewGuid()), new ActorTest(), new Mock<IActorSystem>().Object, new Mock<IActorSystemExecuterContract>().Object, loggerMock.Object, new ActorSystemConfiguration(), new ActorState(7));
 
             actorExecuter.Send(new AddValue(5));
             var state1 = await actorExecuter.UnsafeGetState();
@@ -49,7 +49,7 @@ namespace ActorModelNet.System.Tests
         public async Task CheckMessageExecutedInOrder()
         {
             var loggerMock = new Mock<ILogger>();
-            var actorExecuter = new ActorExecuter<ActorState>(new GuidActorIdentity(Guid.NewGuid()), new ActorTest(), new Mock<IActorSystem>().Object, new Mock<IActorSystemExceptionHandling>().Object, loggerMock.Object, new ActorSystemConfiguration(), new ActorState(7));
+            var actorExecuter = new ActorExecuter<ActorState>(new GuidActorIdentity(Guid.NewGuid()), new ActorTest(), new Mock<IActorSystem>().Object, new Mock<IActorSystemExecuterContract>().Object, loggerMock.Object, new ActorSystemConfiguration(), new ActorState(7));
 
             actorExecuter.Send(new AddValue(5));
             actorExecuter.Send(new MultiplyValue(-2));
@@ -70,25 +70,14 @@ namespace ActorModelNet.System.Tests
                 switch (envelop.Message)
                 {
                     case AddValue message:
-                        return Handle(state, message);
+                        return new ActorState(state.IntValue + message.IntValue);
 
                     case MultiplyValue message:
-                        return Handle(state, message);
+                        return new ActorState(state.IntValue * message.IntValue);
 
                 }
                 return state;
             }
-
-            private ActorState Handle(ActorState state, AddValue message)
-            {
-                return new ActorState(state.IntValue + message.IntValue);
-            }
-
-            private ActorState Handle(ActorState state, MultiplyValue message)
-            {
-                return new ActorState(state.IntValue * message.IntValue);
-            }
-
 
         }
         public record AddValue(int IntValue);

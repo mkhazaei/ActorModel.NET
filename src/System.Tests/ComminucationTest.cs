@@ -46,34 +46,19 @@ public class ComminucationTest
             {
 
                 case GetValueFrom message:
-                    return Handle(state, message, envelop);
+                    envelop.Send<ActorTest, ActorState>(message.Target, new SendYourValue());
+                    return new ActorState(state.IntValue, message.TCS);
 
                 case SendYourValue message:
-                    return Handle(state, message, envelop);
+                    envelop.Send<ActorTest, ActorState>(envelop.Sender ?? throw new ArgumentNullException("Sender is not not valid"), new RequestedValue(state.IntValue));
+                    return state;
 
                 case RequestedValue message:
-                    return Handle(state, message, envelop);
+                    state.TCS?.SetResult();
+                    return new ActorState(message.IntValue);
 
             }
             return state;
-        }
-
-        private ActorState Handle(ActorState state, GetValueFrom message, MessageEnvelop envelop)
-        {
-            envelop.Send<ActorTest, ActorState>(message.Target, new SendYourValue());
-            return new ActorState(state.IntValue, message.TCS);
-        }
-
-        private ActorState Handle(ActorState state, SendYourValue message, MessageEnvelop envelop)
-        {
-            envelop.Send<ActorTest, ActorState>(envelop.Sender ?? throw new ArgumentNullException("Sender is not not valid"), new RequestedValue(state.IntValue));
-            return state;
-        }
-
-        private ActorState Handle(ActorState state, RequestedValue message, MessageEnvelop envelop)
-        {
-            state.TCS?.SetResult();
-            return new ActorState(message.IntValue);
         }
     }
 

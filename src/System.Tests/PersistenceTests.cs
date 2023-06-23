@@ -18,12 +18,11 @@ namespace ActorModelNet.System.Tests
         {
             var loggerMock = new Mock<ILogger<ActorSystem>>();
             var persistence = new Mock<IPersistence>();
-            var identity = new GuidActorIdentity(Guid.NewGuid());
             var configuration = new ActorSystemConfiguration() { PersistenceTimeoutInSecond = 2 };
             using var actorSystem = new ActorSystem(loggerMock.Object, persistence.Object, configuration);
             actorSystem.Register<ActorTest>();
 
-            var actor1 = actorSystem.Spawn<ActorTest, ActorState>(identity);
+            var actor1 = actorSystem.Spawn<ActorTest, ActorState>(new GuidActorIdentity(Guid.NewGuid()));
             var state1 = await actor1.UnsafeGetState();
             persistence.Verify(s => s.Save(It.IsAny<IActorIdentity>(), It.IsAny<ActorState>()), Times.Once);
         }
@@ -41,7 +40,7 @@ namespace ActorModelNet.System.Tests
                     return true;
                 });
 
-            var configuration = new ActorSystemConfiguration() { PersistenceTimeoutInSecond = 2 };
+            var configuration = new ActorSystemConfiguration() { PersistenceTimeoutInSecond = 3 };
             using var actorSystem = new ActorSystem(loggerMock.Object, persistence.Object, configuration);
             actorSystem.Register<ActorTest>();
 
@@ -50,13 +49,12 @@ namespace ActorModelNet.System.Tests
             var watch = Stopwatch.StartNew();
             actor1.Send(new AddValue(7));
 
-
             await tcs.Task;
             watch.Stop();
             var state1 = await actor1.UnsafeGetState();
             Assert.Equal(19, state1.IntValue);
-            Assert.Equal(2, Math.Round(watch.Elapsed.TotalSeconds));
-            persistence.Verify(s => s.Save(It.IsAny<IActorIdentity>(), It.IsAny<ActorState>()), Times.Exactly(2));
+            Assert.Equal(3, Math.Round(watch.Elapsed.TotalSeconds));
+            persistence.Verify(m => m.Save(It.IsAny<IActorIdentity>(), It.IsAny<ActorState>()), Times.Exactly(2));
         }
 
         public class ActorTest : IActor<ActorState>
@@ -72,15 +70,11 @@ namespace ActorModelNet.System.Tests
                 switch (envelop.Message)
                 {
                     case AddValue message:
-                        return Handle(state, message);
+                        return new ActorState(state.IntValue + message.IntValue);
                 }
                 return state;
             }
 
-            private ActorState Handle(ActorState state, AddValue message)
-            {
-                return new ActorState(state.IntValue + message.IntValue);
-            }
 
         }
         public record AddValue(int IntValue);
