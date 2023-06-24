@@ -34,7 +34,7 @@ public class ActorBehaviour : IActorBehavior<ActorState>
             case AddValue message:
                 return new ActorState(state.IntValue + message.IntValue);
 			case Ping message:
-				envelop.Send(envelop.Sender, new Pong(state.IntValue));
+				envelop.Responde(new Pong(state.IntValue));
                 return state;
         }
         return state;

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Reflection;
 
 namespace ActorModelNet.Contracts
 {
@@ -7,17 +8,18 @@ namespace ActorModelNet.Contracts
     /// </summary>
     public class MessageEnvelop
     {
-        private readonly IActorIdentity _identity;
         private readonly IActorSystem _actorSystem;
+        private readonly ActorIdentityAndType? _sender;
+        private readonly ActorIdentityAndType _current;
 
         /// <summary>
         /// 
         /// </summary>
-        public MessageEnvelop(object message, IActorIdentity? sender, IActorIdentity identity, IActorSystem actorSystem)
+        public MessageEnvelop(object message, ActorIdentityAndType? sender, ActorIdentityAndType reciever, IActorSystem actorSystem)
         {
             Message = message;
-            Sender = sender;
-            _identity = identity;
+            _sender = sender;
+            _current = reciever;
             _actorSystem = actorSystem;
         }
 
@@ -26,19 +28,33 @@ namespace ActorModelNet.Contracts
         /// </summary>
         public object Message { get; init; }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        public IActorIdentity? Sender {  get; init; }
+        
 
         /// <summary>
         /// 
         /// </summary>
-        public void Send<TActor, TState>(IActorIdentity identity, object message)
-            where TActor : class, IActor<TState>
-            where TState : class, IEquatable<TState>
+        public bool Respond(object message)
         {
-            _actorSystem.Send<TActor, TState>(identity, message, _identity);
+            if (_sender == null)
+                return false;
+            _actorSystem.Send(_sender, message, _current);
+            return true;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public void Send<TActor>(ActorIdentityAndType receiver, object message)
+        {
+            _actorSystem.Send(receiver, message, _current);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public void Send<TActor>(IActorIdentity receiverId, object message)
+        {
+            _actorSystem.Send(new ActorIdentityAndType(receiverId, typeof(TActor)), message, _current);
         }
     }
 }

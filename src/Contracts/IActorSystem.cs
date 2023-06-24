@@ -15,11 +15,16 @@ namespace ActorModelNet.Contracts
     {
 
         /// <summary>
-        /// 
+        /// Send Message - Type Safe
         /// </summary>
-        void Send<TActor, TState>(IActorIdentity identity, object message, IActorIdentity? sender = null)
+        void Send<TActor, TState>(IActorIdentity identity, object message, ActorIdentityAndType? sender = null)
             where TActor : class, IActor<TState>
             where TState : class, IEquatable<TState>;
+
+        /// <summary>
+        /// Send Message - Reflection
+        /// </summary>
+        public void Send(ActorIdentityAndType reciever, object message, ActorIdentityAndType? sender = null);
 
         /// <summary>
         /// Get Actor Reference

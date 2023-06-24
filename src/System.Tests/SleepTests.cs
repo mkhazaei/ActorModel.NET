@@ -27,7 +27,7 @@ namespace ActorModelNet.System.Tests
                     It.IsAny<EventId>(),
                     It.Is<It.IsAnyType>((v, t) => v.ToString() == $"Sleep : Actor/{identity} slept"),
                     It.IsAny<Exception>(),
-                    It.Is<Func<It.IsAnyType, Exception, string>>((v, t) => true)))
+                    It.Is<Func<It.IsAnyType, Exception?, string>>((v, t) => true)))
                 .Callback(() => { tcs.SetResult(); });
             using var actorSystem = new ActorSystem(loggerMock.Object, persistence.Object, configuration);
             actorSystem.Register<ActorTest>();

@@ -66,11 +66,20 @@ namespace ActorModelNet.System
         /// <summary>
         /// Send Message
         /// </summary>
-        public void Send<TActor, TState>(IActorIdentity identity, object message, IActorIdentity? sender = null)
+        public void Send<TActor, TState>(IActorIdentity identity, object message, ActorIdentityAndType? sender = null)
             where TActor : class, IActor<TState>
             where TState : class, IEquatable<TState>
         {
             var actor = GetOrRestore<TActor, TState>(identity);
+            actor.Send(message, sender);
+        }
+
+        /// <summary>
+        /// Send Message
+        /// </summary>
+        public void Send(ActorIdentityAndType receiver, object message, ActorIdentityAndType? sender = null)
+        {
+            var actor = GetOrRestore(receiver.Identity, receiver.Type);
             actor.Send(message, sender);
         }
 

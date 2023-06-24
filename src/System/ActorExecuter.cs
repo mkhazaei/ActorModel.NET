@@ -21,7 +21,7 @@ namespace ActorModelNet.System
 
         #region Private Fields
 
-        private readonly ConcurrentQueue<(object Message, IActorIdentity? Sender)> _messageQueue; // MailBox
+        private readonly ConcurrentQueue<(object Message, ActorIdentityAndType? Sender)> _messageQueue; // MailBox
         private readonly IActorSystem _actorSystem;
         private readonly IActorSystemExecuterContract _actorSystemExecuterContract;
         private readonly IActorIdentity _identity;
@@ -62,7 +62,7 @@ namespace ActorModelNet.System
             _actorSystem = actorSystem;
             _actorSystemExecuterContract = actorSystemExecuterContract;
             _processStatus = ActorStatus.Idle;
-            _messageQueue = new ConcurrentQueue<(object Message, IActorIdentity? Sender)>();
+            _messageQueue = new ConcurrentQueue<(object Message, ActorIdentityAndType? Sender)>();
             _persistence = persistence;
             _dirty = true; // Need to persist!
             _persistenceTimer = null;
@@ -98,7 +98,7 @@ namespace ActorModelNet.System
         /// <summary>
         /// Receive user messages
         /// </summary>
-        public void Send(object message, IActorIdentity? sender = null)
+        public void Send(object message, ActorIdentityAndType? sender = null)
         {
             if (_processStatus == ActorStatus.Stopped) throw new ActorAlreadyStoppedException();
             ResetSleepTimer();
@@ -196,7 +196,7 @@ namespace ActorModelNet.System
                 }
                 else
                 {
-                    var newState = _behaviourFactory().Handle(new MessageEnvelop(envelop.Message, envelop.Sender, _identity, _actorSystem), _state);
+                    var newState = _behaviourFactory().Handle(new MessageEnvelop(envelop.Message, envelop.Sender, new ActorIdentityAndType(_identity, _actorType), _actorSystem), _state);
                     var modified = !_state.Equals(newState);
                     if (modified)
                     {

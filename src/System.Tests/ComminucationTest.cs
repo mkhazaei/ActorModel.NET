@@ -46,11 +46,11 @@ public class ComminucationTest
             {
 
                 case GetValueFrom message:
-                    envelop.Send<ActorTest, ActorState>(message.Target, new SendYourValue());
+                    envelop.Send<ActorTest>(message.Target, new SendYourValue());
                     return new ActorState(state.IntValue, message.TCS);
 
                 case SendYourValue message:
-                    envelop.Send<ActorTest, ActorState>(envelop.Sender ?? throw new ArgumentNullException("Sender is not not valid"), new RequestedValue(state.IntValue));
+                    envelop.Respond(new RequestedValue(state.IntValue));
                     return state;
 
                 case RequestedValue message:

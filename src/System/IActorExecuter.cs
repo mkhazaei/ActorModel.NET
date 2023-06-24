@@ -22,7 +22,7 @@ namespace ActorModelNet.System
         /// </summary>
         /// <param name="message">message</param>
         /// <param name="sender">identity of sender (if another actor sent the message)</param>
-        void Send(object message, IActorIdentity? sender = null);
+        void Send(object message, ActorIdentityAndType? sender = null);
 
         /// <summary>
         /// 
