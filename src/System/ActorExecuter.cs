@@ -189,14 +189,14 @@ namespace ActorModelNet.System
             for (int i = 0; i < _configuration.BatchExecutionSize; i++)
             {
                 if (_processStatus == ActorStatus.Stopped) break;
-                if (!_messageQueue.TryDequeue(out var envelop)) break;
-                if (envelop.Message is ISystemMessage sysMessage)
+                if (!_messageQueue.TryDequeue(out var envelope)) break;
+                if (envelope.Message is ISystemMessage sysMessage)
                 {
                     HandleSystemMessage(sysMessage);
                 }
                 else
                 {
-                    var newState = _behaviourFactory().Handle(new MessageEnvelop(envelop.Message, envelop.Sender, new ActorIdentityAndType(_identity, _actorType), _actorSystem), _state);
+                    var newState = _behaviourFactory().Handle(new MessageEnvelope(envelope.Message, envelope.Sender, new ActorIdentityAndType(_identity, _actorType), _actorSystem), _state);
                     var modified = !_state.Equals(newState);
                     if (modified)
                     {
@@ -298,9 +298,9 @@ namespace ActorModelNet.System
         private void InternalError(Exception exception)
         {
             _processStatus = ActorStatus.Stopped;
-            foreach (var envelop in _messageQueue)
+            foreach (var envelope in _messageQueue)
             {
-                if (envelop.Message is GetStateSystemMessage<TState> getState)
+                if (envelope.Message is GetStateSystemMessage<TState> getState)
                     getState.TaskCompletionSource.SetException(exception);
             }
             _messageQueue.Clear();

@@ -6,7 +6,7 @@ namespace ActorModelNet.Contracts
     /// <summary>
     /// Message Envelop to keep message and sender
     /// </summary>
-    public class MessageEnvelop
+    public class MessageEnvelope
     {
         private readonly IActorSystem _actorSystem;
         private readonly ActorIdentityAndType? _sender;
@@ -15,11 +15,11 @@ namespace ActorModelNet.Contracts
         /// <summary>
         /// 
         /// </summary>
-        public MessageEnvelop(object message, ActorIdentityAndType? sender, ActorIdentityAndType reciever, IActorSystem actorSystem)
+        public MessageEnvelope(object message, ActorIdentityAndType? sender, ActorIdentityAndType receiver, IActorSystem actorSystem)
         {
             Message = message;
             _sender = sender;
-            _current = reciever;
+            _current = receiver;
             _actorSystem = actorSystem;
         }
 

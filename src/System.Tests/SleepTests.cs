@@ -53,9 +53,9 @@ namespace ActorModelNet.System.Tests
     public record ActorState(int IntValue);
     public class ActorBehaviour : IActorBehavior<ActorState>
     {
-        public ActorState Handle(MessageEnvelop envelop, ActorState state)
+        public ActorState Handle(MessageEnvelope envelope, ActorState state)
         {
-            switch (envelop.Message)
+            switch (envelope.Message)
             {
                 case AddValue message:
                     return new ActorState(state.IntValue + message.IntValue);

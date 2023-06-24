@@ -11,6 +11,6 @@ namespace ActorModelNet.Contracts
         /// <summary>
         /// Get Message and State and return new Sate and modification
         /// </summary>
-        TState Handle(TState state, object envelop);
+        TState Handle(TState state, object envelope);
     }
 }

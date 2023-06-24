@@ -27,14 +27,14 @@ public record ActorState(int IntValue);
 // Actor Behaviour
 public class ActorBehaviour : IActorBehavior<ActorState>
 {
-    public ActorState Handle(MessageEnvelop envelop, ActorState state)
+    public ActorState Handle(MessageEnvelope envelope, ActorState state)
     {
-        switch (envelop.Message)
+        switch (envelope.Message)
         {
             case AddValue message:
                 return new ActorState(state.IntValue + message.IntValue);
             case Ping message:
-                envelop.Responde(new Pong(state.IntValue));
+                envelope.Responde(new Pong(state.IntValue));
                 return state;
         }
         return state;

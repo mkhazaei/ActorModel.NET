@@ -40,17 +40,17 @@ public class ComminucationTest
     public record ActorState(int IntValue, TaskCompletionSource? TCS = null);
     public class ActorBehaviour : IActorBehavior<ActorState>
     {
-        public ActorState Handle(MessageEnvelop envelop, ActorState state)
+        public ActorState Handle(MessageEnvelope envelope, ActorState state)
         {
-            switch (envelop.Message)
+            switch (envelope.Message)
             {
 
                 case GetValueFrom message:
-                    envelop.Send<ActorTest>(message.Target, new SendYourValue());
+                    envelope.Send<ActorTest>(message.Target, new SendYourValue());
                     return new ActorState(state.IntValue, message.TCS);
 
                 case SendYourValue message:
-                    envelop.Respond(new RequestedValue(state.IntValue));
+                    envelope.Respond(new RequestedValue(state.IntValue));
                     return state;
 
                 case RequestedValue message:
