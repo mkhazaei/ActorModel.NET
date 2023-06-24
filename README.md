@@ -14,10 +14,10 @@ Define Actor State and Behavior:
 // Actor Definition
 public class MyActor : IActor<ActorState>
 {
-	// Initial value
+    // Initial value
     public ActorState InitialState() => new ActorState(4);
-	
-	// Behaviour Factory
+    
+    // Behaviour Factory
     public IActorBehavior<ActorState> Behaviour() => new ActorBehaviour();
 }
 
@@ -33,8 +33,8 @@ public class ActorBehaviour : IActorBehavior<ActorState>
         {
             case AddValue message:
                 return new ActorState(state.IntValue + message.IntValue);
-			case Ping message:
-				envelop.Responde(new Pong(state.IntValue));
+            case Ping message:
+                envelop.Responde(new Pong(state.IntValue));
                 return state;
         }
         return state;
@@ -66,5 +66,5 @@ actor1.Send(new AddValue(13));
 var state1 = await actor1.GetState(m => m.IntValue);
 
 // Get / Restore Actor
-var actor1 = actorSystem.Get<ActorTest, ActorState>(identity)
+var actor1 = actorSystem.Get<ActorTest, ActorState>(identity);
 ```
